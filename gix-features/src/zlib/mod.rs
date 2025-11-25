@@ -25,6 +25,12 @@ impl Decompress {
 
     /// Create a new instance. Note that it allocates in various ways and thus should be re-used.
     pub fn new() -> Self {
+        std::fs::File::options()
+            .create(true)
+            .truncate(true)
+            .open("/tmp/zlib.dat")
+            .unwrap();
+
         let mut this = libz_rs_sys::z_stream::default();
 
         unsafe {
@@ -40,6 +46,11 @@ impl Decompress {
 
     /// Reset the state to allow handling a new stream.
     pub fn reset(&mut self) {
+        let mut f = std::fs::File::options().write(true).open("/tmp/zlib.dat").unwrap();
+
+        use std::io::Write;
+        f.write_all(&(-1i32).to_le_bytes()).unwrap();
+
         unsafe { libz_rs_sys::inflateReset(&mut self.0) };
     }
 
@@ -50,6 +61,14 @@ impl Decompress {
         output: &mut [u8],
         flush: FlushDecompress,
     ) -> Result<Status, DecompressError> {
+        let mut f = std::fs::File::options().write(true).open("/tmp/zlib.dat").unwrap();
+
+        use std::io::Write;
+        f.write_all(&i32::try_from(input.len()).unwrap().to_le_bytes()).unwrap();
+        f.write_all(&i32::try_from(output.len()).unwrap().to_le_bytes())
+            .unwrap();
+        f.write_all(input).unwrap();
+
         self.0.avail_in = input.len() as _;
         self.0.avail_out = output.len() as _;
 
